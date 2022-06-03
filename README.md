@@ -3,9 +3,9 @@
 Para ejecutar, correr los siguientes comandos:
 
 ```
-chmod +x run.sh
+$ chmod +x run.sh
 ```
 
 ```
-./run.sh
+$ ./run.sh
 ```
