@@ -14,7 +14,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 public class InvertedIndex {
 
   /*
-  Output:    
+  Output:
   'palabra1' doc1
   'palabra1' doc2
   'palabra2' doc2
@@ -30,14 +30,14 @@ public class InvertedIndex {
     public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
 
       // Separamos DocID y el contenido del file
-      String DocId = value.toString().substring(0, value.toString().indexOf("\t"));
-      String texto =  value.toString().substring(value.toString().indexOf("\t") + 1);
-      
+      String DocId = value.toString().substring(0, value.toString().indexOf("$"));
+      String texto =  value.toString().substring(value.toString().indexOf("$") + 1);
+
       // Leemos la entrada una línea a la vez y tokenizamos usando los caracteres
       // " ", "'" y "-" como tokenizadores.
       StringTokenizer itr = new StringTokenizer(texto, " '-");
-      
-      // Iterando a través de todas las palabras disponibles en esa línea 
+
+      // Iterando a través de todas las palabras disponibles en esa línea
       //y formando el par clave/valor.
       while (itr.hasMoreTokens()) {
         // Se eliminan caracteres especiales
@@ -54,16 +54,16 @@ public class InvertedIndex {
     public void reduce(Text key, Iterable<Text> values,
                        Context context
                        ) throws IOException, InterruptedException {
-      
+
       // Key -> palabra
       // values -> [doc1, doc2, doc3, ...]
       HashMap<String,Integer> map = new HashMap<String,Integer>();
-      
+
       for (Text val : values) {
         // Si ya existe el docID
         if (map.containsKey(val.toString())) {
           map.put(val.toString(), map.get(val.toString()) + 1);
-        } 
+        }
         else { // Si no existe el docID
           map.put(val.toString(), 1);
         }
@@ -86,7 +86,7 @@ public class InvertedIndex {
       docValueList:
       doc1:3 doc2:1 doc4:2
       */
-      
+
       context.write(key, new Text(docValueList.toString()));
     }
   }
