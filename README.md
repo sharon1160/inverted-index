@@ -1,5 +1,10 @@
 # Inverted Index
 
+### Integrantes:
+
+- Zúñiga Coayla, Jerson
+- Chullunquia Rosas, Sharon
+
 ## Requirements
 
 ### Hadoop Distributed File System (HDFS)
