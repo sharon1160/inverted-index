@@ -73,6 +73,11 @@ Print the results with:
 
 ```
 ❯ hdfs dfs -cat output/part-r-00000 | less
+bye     doc01:1 
+goodbye doc02:1 
+hadoop  doc02:2 
+hello   doc01:1 doc02:1 
+world   doc01:2 
 ```
 
 ## Notes
