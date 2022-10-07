@@ -1,9 +1,5 @@
 package com.mycompany.app;
 
-import java.io.IOException;
-import java.util.StringTokenizer;
-import java.util.HashMap;
-
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
@@ -11,98 +7,100 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class InvertedIndex {
+    private final static Pattern validWordPattern = Pattern.compile("[a-zA-Z0-9]+");
+    private final static Pattern tokenSeparator = Pattern.compile("( |,|\\.|-|_|;)");
+    private final static Pattern htmlExtPat = Pattern.compile("\\.html");
 
-  /*
-  Output:
-  'palabra1' doc1
-  'palabra1' doc2
-  'palabra2' doc2
-  */
-  public static class TokenizerMapper extends Mapper<Object, Text, Text, Text>{
+    public static String urlFromPath(String path) {
+        String[] parts = path.split("/");
 
-    /*
-    Hadoop soporta tipos de datos
-    Usamos Text en vez de String de Java
-    */
-    private Text palabra = new Text();
+        boolean foundDomain = false;
+        StringBuilder urlBuilder = new StringBuilder();
+        for (String part : parts) {
+            foundDomain = foundDomain | part.contains(".");
+            if (!foundDomain) {
+                continue;
+            }
 
-    public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
-
-      // Separamos DocID y el contenido del file
-      String DocId = value.toString().substring(0, value.toString().indexOf("$"));
-      String texto =  value.toString().substring(value.toString().indexOf("$") + 1);
-
-      // Leemos la entrada una línea a la vez y tokenizamos usando los caracteres
-      // " ", "'" y "-" como tokenizadores.
-      StringTokenizer itr = new StringTokenizer(texto, " '-");
-
-      // Iterando a través de todas las palabras disponibles en esa línea
-      //y formando el par clave/valor.
-      while (itr.hasMoreTokens()) {
-        // Se eliminan caracteres especiales
-        palabra.set(itr.nextToken().replaceAll("[^a-zA-Z]", "").toLowerCase());
-        if(palabra.toString() != "" && !palabra.toString().isEmpty()){
-          context.write(palabra, new Text(DocId));
+            urlBuilder.append(part);
+            urlBuilder.append("/");
         }
-      }
+
+        String url = urlBuilder.substring(0, urlBuilder.length() - 1);
+        return htmlExtPat.matcher(url).replaceAll("");
     }
-  }
 
-  public static class IntSumReducer extends Reducer<Text,Text,Text,Text> {
-    // El método Reduce recopila la salida del Mapper, calcula y agrega el recuento de palabras.
-    public void reduce(Text key, Iterable<Text> values,
-                       Context context
-                       ) throws IOException, InterruptedException {
-
-      // Key -> palabra
-      // values -> [doc1, doc2, doc3, ...]
-      HashMap<String,Integer> map = new HashMap<String,Integer>();
-
-      for (Text val : values) {
-        // Si ya existe el docID
-        if (map.containsKey(val.toString())) {
-          map.put(val.toString(), map.get(val.toString()) + 1);
-        }
-        else { // Si no existe el docID
-          map.put(val.toString(), 1);
-        }
-      }
-
-      /*
-      map:
-      <doc1, 3>
-      <doc2, 1>
-      <doc4, 2>
-      <...>
-      */
-
-      StringBuilder docValueList = new StringBuilder();
-      for(String docID : map.keySet()){
-        docValueList.append(docID + ":" + map.get(docID) + " ");
-      }
-
-      /*
-      docValueList:
-      doc1:3 doc2:1 doc4:2
-      */
-
-      context.write(key, new Text(docValueList.toString()));
+    public static void main(String[] args) throws Exception {
+        Configuration conf = new Configuration();
+        Job job = Job.getInstance(conf, "inverted-index");
+        job.setJarByClass(InvertedIndex.class);
+        job.setMapperClass(TokenizerMapper.class);
+        job.setReducerClass(PathsReducer.class);
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(Text.class);
+        job.setInputFormatClass(WholeFileInputFormat.class);
+        FileInputFormat.addInputPath(job, new Path(args[0]));
+        FileInputFormat.setInputDirRecursive(job, true);
+        FileOutputFormat.setOutputPath(job, new Path(args[1]));
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
     }
-  }
 
-  public static void main(String[] args) throws Exception {
-    Configuration conf = new Configuration();
-    Job job = Job.getInstance(conf, "inverted index");
-    job.setJarByClass(InvertedIndex.class);
-    job.setMapperClass(TokenizerMapper.class);
-    job.setReducerClass(IntSumReducer.class);
-    job.setOutputKeyClass(Text.class);
-    job.setOutputValueClass(Text.class);
-    FileInputFormat.addInputPath(job, new Path(args[0]));
-    FileOutputFormat.setOutputPath(job, new Path(args[1]));
-    System.exit(job.waitForCompletion(true) ? 0 : 1);
-  }
+    public static class TokenizerMapper extends Mapper<Object, Text, Text, Text> {
+        private final Text url = new Text();
+        private final Text word = new Text();
+
+        public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
+            Document doc = Jsoup.parse(value.toString());
+            String text = doc.body().text();
+
+            FileSplit split = (FileSplit) context.getInputSplit();
+            url.set(urlFromPath(split.getPath().toString()));
+
+            String[] tokens = tokenSeparator.split(text);
+            for (String token : tokens) {
+                token = token.replaceAll("(\"|'|\\[|\\]|\\(|\\)|\\$|#|\\?|!|\\*|¿|¡|%|\\+)", "").trim();
+
+                Matcher matcher = validWordPattern.matcher(token);
+                if (matcher.matches()) {
+                    word.set(token.toLowerCase());
+                    context.write(word, url);
+                }
+            }
+        }
+    }
+
+    public static class PathsReducer extends Reducer<Text, Text, Text, Text> {
+        private final Text result = new Text();
+
+        public void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
+            HashMap<String, Integer> urlCount = new HashMap<String, Integer>();
+
+            for (Text path : values) {
+                String temp = path.toString();
+
+                Integer count = urlCount.getOrDefault(temp, 0);
+                urlCount.put(temp, count + 1);
+            }
+
+            StringBuilder stringBuilder = new StringBuilder();
+            for (HashMap.Entry<String, Integer> entry : urlCount.entrySet()) {
+                stringBuilder.append(entry.getKey() + '|' + entry.getValue());
+                stringBuilder.append('|');
+            }
+
+            result.set(stringBuilder.substring(0, stringBuilder.length() - 1));
+            context.write(key, result);
+        }
+    }
 }
