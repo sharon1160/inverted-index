@@ -13,7 +13,6 @@ Table of contents:
     + [Yet Another Resource Negotiator (YARN)](#yet-another-resource-negotiator--yarn-)
   * [Start](#start)
     + [Compile](#compile)
-      - [Using Maven](#using-maven)
     + [HDFS](#hdfs)
     + [YARN](#yarn)
     + [Results](#results)
