@@ -41,6 +41,7 @@ YARN runs and schedules tasks. Start YARN with the script:
 ## Start
 The following command packages dependencies and main program into a JAR executable.
 
+### Compile
 ```
 ❯ mvn clean compile assembly:single 
 ```
