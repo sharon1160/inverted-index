@@ -1,9 +1,23 @@
 # Inverted Index
 
-### Integrantes:
+Meet the team:
 
 - Zúñiga Coayla, Jerson
 - Chullunquia Rosas, Sharon
+
+Table of contents:
+
+- [Inverted Index](#inverted-index)
+  * [Requirements](#requirements)
+    + [Hadoop Distributed File System (HDFS)](#hadoop-distributed-file-system--hdfs-)
+    + [Yet Another Resource Negotiator (YARN)](#yet-another-resource-negotiator--yarn-)
+  * [Start](#start)
+    + [Compile](#compile)
+      - [Using Maven](#using-maven)
+    + [HDFS](#hdfs)
+    + [YARN](#yarn)
+    + [Results](#results)
+  * [Notes](#notes)
 
 ## Requirements
 
@@ -34,6 +48,14 @@ YARN runs and schedules tasks. Start YARN with the script:
 ```
 ❯ hadoop com.sun.tools.javac.Main InvertedIndex.java
 ❯ jar cf inverted-index.jar InvertedIndex*.class
+```
+
+#### Using Maven
+
+The following command packages dependencies and main program into a JAR executable.
+
+```
+``mvn clean compile assembly:single``
 ```
 
 ### HDFS
